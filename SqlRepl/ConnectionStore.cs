@@ -53,13 +53,23 @@ public class ConnectionStore
     public SavedConnection? Get(string name) =>
         _connections.GetValueOrDefault(name);
 
-    public IReadOnlyList<SavedConnection> FuzzySearch(string query, int threshold = 60)
+    public IReadOnlyList<SavedConnection> FuzzySearch(string query, int threshold = 70)
     {
         if (string.IsNullOrWhiteSpace(query))
             return GetAll();
 
+        var q = query.ToLowerInvariant();
+
         return _connections.Values
-            .Select(c => new { Connection = c, Score = Fuzz.PartialRatio(query.ToLowerInvariant(), c.Name.ToLowerInvariant()) })
+            .Select(c =>
+            {
+                var name = c.Name.ToLowerInvariant();
+                // Prefer substring containment, then fall back to full-string ratio
+                var score = name.Contains(q)
+                    ? 100
+                    : Fuzz.Ratio(q, name);
+                return new { Connection = c, Score = score };
+            })
             .Where(x => x.Score >= threshold)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Connection.Name)

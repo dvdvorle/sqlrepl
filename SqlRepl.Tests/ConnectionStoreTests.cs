@@ -171,6 +171,19 @@ public class ConnectionStoreTests : IDisposable
     }
 
     [Fact]
+    public void FuzzySearch_ShortQuery_DoesNotOverMatch()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "sc344so1", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "sc344ow1", Host = "h", Username = "u", Password = "p" });
+
+        // "so1" should only match sc344so1, not sc344ow1
+        var results = store.FuzzySearch("so1");
+        Assert.Single(results);
+        Assert.Equal("sc344so1", results[0].Name);
+    }
+
+    [Fact]
     public void FuzzySearch_CaseInsensitive()
     {
         var store = new ConnectionStore(_filePath);
