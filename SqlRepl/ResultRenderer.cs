@@ -32,7 +32,7 @@ public static class ResultRenderer
 
         foreach (DataColumn col in data.Columns)
         {
-            table.AddColumn(new TableColumn($"[bold yellow]{Markup.Escape(col.ColumnName)}[/]"));
+            table.AddColumn(new TableColumn($"[bold yellow]{Markup.Escape(col.ColumnName.ToLowerInvariant())}[/]"));
         }
 
         foreach (DataRow row in data.Rows)

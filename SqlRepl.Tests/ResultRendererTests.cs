@@ -29,8 +29,8 @@ public class ResultRendererTests
         ResultRenderer.Render(result, console);
 
         var output = console.Output;
-        Assert.Contains("ID", output);
-        Assert.Contains("NAME", output);
+        Assert.Contains("id", output);
+        Assert.Contains("name", output);
         Assert.Contains("Alice", output);
         Assert.Contains("Bob", output);
         Assert.Contains("2 row(s) returned", output);
