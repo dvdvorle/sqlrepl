@@ -26,9 +26,14 @@ public class HelpCommand : ICommand
         console.Output.WriteLine();
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Commands:"));
         console.Output.WriteLine("    conn <user/pass@host>       Connect via credentials and TNS alias or host");
+        console.Output.WriteLine("    conn <saved-name>           Connect using a saved connection");
         console.Output.WriteLine("    conn \"<connection string>\"  Connect via full connection string");
         console.Output.WriteLine("    connect ...                 Alias for conn");
+        console.Output.WriteLine("    conn save <name> <spec>     Save a connection for later use");
+        console.Output.WriteLine("    conn list                   List saved connections");
+        console.Output.WriteLine("    conn delete <name>          Delete a saved connection");
         console.Output.WriteLine("    help                        Show this help");
+        console.Output.WriteLine("    exit / quit / q             Exit the REPL");
         console.Output.WriteLine("    <SQL statement>             Execute SQL against the connected database");
         console.Output.WriteLine();
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Interactive:"));

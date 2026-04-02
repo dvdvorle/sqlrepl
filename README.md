@@ -38,7 +38,20 @@ dotnet test
 conn scott/tiger@myalias
 conn scott/tiger@myhost:1521/ORCL
 conn "User Id=scott;Password=tiger;Data Source=myhost:1521/ORCL"
+conn dev                            # use a saved connection
 connect scott/tiger@myhost
+```
+
+### Saved Connections
+
+Save connections for reuse across sessions (stored in `~/.sqlrepl/connections.json`):
+
+```
+conn save dev scott/tiger@myhost
+conn save prod "User Id=admin;Password=secret;Data Source=prodhost:1521/PROD"
+conn list
+conn delete dev
+conn dev                            # connect using saved name
 ```
 
 ### Executing queries
@@ -55,7 +68,11 @@ myhost:1521/ORCL > INSERT INTO logs (msg) VALUES ('hello')
 | Command                | Description                              |
 |------------------------|------------------------------------------|
 | `conn` / `connect`     | Connect to an Oracle database            |
-| `help`                 | Show available commands (Typin built-in)  |
+| `conn save <name>`     | Save a connection for later use          |
+| `conn list`            | List saved connections                   |
+| `conn delete <name>`   | Delete a saved connection                |
+| `help`                 | Show available commands                  |
+| `exit` / `quit` / `q`  | Exit the REPL                            |
 | Tab / Shift+Tab        | Autocomplete commands                    |
 | Up / Down              | Navigate command history                 |
 
@@ -68,8 +85,14 @@ SqlRepl/
 │   ├── ConnectCommand.cs     — [Command("conn")] handler
 │   ├── ConnectLongCommand.cs — [Command("connect")] alias
 │   ├── ConnectHelper.cs      — Shared connection logic
+│   ├── ConnSaveCommand.cs    — [Command("conn save")] save connections
+│   ├── ConnListCommand.cs    — [Command("conn list")] list saved connections
+│   ├── ConnDeleteCommand.cs  — [Command("conn delete")] remove connections
+│   ├── HelpCommand.cs        — [Command("help")] usage info
+│   ├── ExitCommand.cs        — [Command("exit/quit/q")] exit REPL
 │   └── SqlCommand.cs         — Default command for SQL queries
 ├── ConnectionManager.cs      — Oracle connection lifecycle
+├── ConnectionStore.cs        — JSON-based persistent connection storage
 ├── QueryExecutor.cs          — SQL execution, returns DataTable or row count
 ├── ResultRenderer.cs         — Spectre.Console table rendering
 ├── CommandParser.cs          — Legacy input parsing (used by tests)

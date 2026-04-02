@@ -19,6 +19,7 @@ class Program
             .ConfigureServices(services =>
             {
                 services.AddSingleton<ConnectionManager>();
+                services.AddSingleton<ConnectionStore>();
                 services.AddSingleton<QueryExecutor>();
             })
             .UseInteractiveMode(asStartup: true, options: cfg =>
