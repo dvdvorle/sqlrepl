@@ -1,5 +1,6 @@
 using System.Data;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace SqlRepl;
 
@@ -32,18 +33,19 @@ public static class ResultRenderer
 
         foreach (DataColumn col in data.Columns)
         {
-            table.AddColumn(new TableColumn($"[bold yellow]{Markup.Escape(col.ColumnName.ToLowerInvariant())}[/]"));
+            table.AddColumn(Markup.Escape(col.ColumnName.ToLowerInvariant()), c => c.NoWrap());
         }
 
         foreach (DataRow row in data.Rows)
         {
-            var cells = new string[data.Columns.Count];
+            var cells = new IRenderable[data.Columns.Count];
             for (var i = 0; i < data.Columns.Count; i++)
             {
                 var value = row[i];
-                cells[i] = value == DBNull.Value
+                var text = value == DBNull.Value
                     ? "[grey italic]NULL[/]"
                     : Markup.Escape(value?.ToString() ?? string.Empty);
+                cells[i] = new Markup(text).Overflow(Overflow.Ellipsis);
             }
             table.AddRow(cells);
         }
