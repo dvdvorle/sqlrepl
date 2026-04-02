@@ -12,7 +12,12 @@ public record QueryResult
     public bool IsQuery { get; init; }
 }
 
-public class QueryExecutor
+public interface IQueryExecutor
+{
+    Task<QueryResult> ExecuteAsync(string sql);
+}
+
+public class QueryExecutor : IQueryExecutor
 {
     private readonly ConnectionManager _connectionManager;
 

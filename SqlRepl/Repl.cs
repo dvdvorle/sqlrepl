@@ -5,7 +5,7 @@ namespace SqlRepl;
 public class Repl : IDisposable
 {
     private readonly ConnectionManager _connectionManager = new();
-    private readonly QueryExecutor _queryExecutor;
+    private readonly IQueryExecutor _queryExecutor;
 
     public Repl()
     {

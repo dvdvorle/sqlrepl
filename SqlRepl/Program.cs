@@ -26,7 +26,7 @@ class Program
             {
                 services.AddSingleton<ConnectionManager>();
                 services.AddSingleton<ConnectionStore>();
-                services.AddSingleton<QueryExecutor>();
+                services.AddSingleton<IQueryExecutor, QueryExecutor>();
                 services.AddSingleton<CommandHistory>();
                 services.AddSingleton<SqlBuffer>();
                 services.AddSingleton(ReplSettings.Load());

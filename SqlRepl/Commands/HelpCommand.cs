@@ -33,6 +33,7 @@ public class HelpCommand : ICommand
         console.Output.WriteLine("    conn list                   List saved connections");
         console.Output.WriteLine("    conn delete <name>          Delete a saved connection");
         console.Output.WriteLine("    help                        Show this help");
+        console.Output.WriteLine("    info <table>                Show columns and foreign keys for a table");
         console.Output.WriteLine("    exit / quit / q             Exit the REPL");
         console.Output.WriteLine("    history                     Show recent command history");
         console.Output.WriteLine("    history search <term>       Search command history");

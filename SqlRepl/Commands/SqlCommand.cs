@@ -9,7 +9,7 @@ namespace SqlRepl.Commands;
 public class SqlCommand : ICommand
 {
     private readonly ConnectionManager _connectionManager;
-    private readonly QueryExecutor _queryExecutor;
+    private readonly IQueryExecutor _queryExecutor;
     private readonly CommandHistory _commandHistory;
     private readonly ReplSettings _settings;
     private readonly SqlBuffer _sqlBuffer;
@@ -17,7 +17,7 @@ public class SqlCommand : ICommand
     [CommandParameter(0, Name = "sql", Description = "SQL statement to execute")]
     public IReadOnlyList<string> SqlParts { get; init; } = [];
 
-    public SqlCommand(ConnectionManager connectionManager, QueryExecutor queryExecutor, CommandHistory commandHistory, ReplSettings settings, SqlBuffer sqlBuffer)
+    public SqlCommand(ConnectionManager connectionManager, IQueryExecutor queryExecutor, CommandHistory commandHistory, ReplSettings settings, SqlBuffer sqlBuffer)
     {
         _connectionManager = connectionManager;
         _queryExecutor = queryExecutor;
