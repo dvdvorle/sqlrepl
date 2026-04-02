@@ -11,15 +11,17 @@ public class SqlCommand : ICommand
     private readonly ConnectionManager _connectionManager;
     private readonly QueryExecutor _queryExecutor;
     private readonly CommandHistory _commandHistory;
+    private readonly ReplSettings _settings;
 
     [CommandParameter(0, Name = "sql", Description = "SQL statement to execute")]
     public IReadOnlyList<string> SqlParts { get; init; } = [];
 
-    public SqlCommand(ConnectionManager connectionManager, QueryExecutor queryExecutor, CommandHistory commandHistory)
+    public SqlCommand(ConnectionManager connectionManager, QueryExecutor queryExecutor, CommandHistory commandHistory, ReplSettings settings)
     {
         _connectionManager = connectionManager;
         _queryExecutor = queryExecutor;
         _commandHistory = commandHistory;
+        _settings = settings;
     }
 
     public static string NormalizeSql(string input)
@@ -44,7 +46,7 @@ public class SqlCommand : ICommand
         {
             var result = await _queryExecutor.ExecuteAsync(sql);
             _commandHistory.Add(sql, _connectionManager.CurrentDataSource);
-            ResultRenderer.Render(result);
+            ResultRenderer.Render(result, settings: _settings);
         }
         catch (Exception ex)
         {

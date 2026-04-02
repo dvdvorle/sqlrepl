@@ -40,6 +40,11 @@ public class HelpCommand : ICommand
         console.Output.WriteLine("    Tab / Shift+Tab             Autocomplete commands");
         console.Output.WriteLine("    Up / Down                   Navigate command history");
         console.Output.WriteLine();
+        console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Configuration (appsettings.json or env vars):"));
+        console.Output.WriteLine("    DateFormat                  DateTime format (default: yyyy-MM-dd HH:mm:ss)");
+        console.Output.WriteLine("    DateOnlyFormat              Date-only format (default: yyyy-MM-dd)");
+        console.Output.WriteLine("    Env: SQLREPL_DateFormat, SQLREPL_DateOnlyFormat");
+        console.Output.WriteLine();
 
         return default;
     }

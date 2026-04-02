@@ -22,6 +22,7 @@ class Program
                 services.AddSingleton<ConnectionStore>();
                 services.AddSingleton<QueryExecutor>();
                 services.AddSingleton<CommandHistory>();
+                services.AddSingleton(ReplSettings.Load());
             })
             .UseInteractiveMode(asStartup: true, options: cfg =>
             {
