@@ -3,18 +3,29 @@ using Typin.Console;
 
 namespace SqlRepl.Tests;
 
-public class SqlCommandTests
+public class SqlCommandTests : IDisposable
 {
+    private readonly string _tempDir;
+    private readonly string _dbPath;
+
+    public SqlCommandTests()
+    {
+        _tempDir = Path.Combine(Path.GetTempPath(), "sqlrepl-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_tempDir);
+        _dbPath = Path.Combine(_tempDir, "history.db");
+    }
+
     [Fact]
     public async Task ExecuteAsync_WhenNotConnected_WritesError()
     {
         using var connectionManager = new ConnectionManager();
         var queryExecutor = new QueryExecutor(connectionManager);
+        using var history = new CommandHistory(_dbPath);
 
         var (console, output, _) = VirtualConsole.CreateBuffered();
         using var _ = console;
 
-        var command = new SqlCommand(connectionManager, queryExecutor)
+        var command = new SqlCommand(connectionManager, queryExecutor, history)
         {
             SqlParts = ["SELECT", "*", "FROM", "dual"]
         };
@@ -28,10 +39,6 @@ public class SqlCommandTests
     [Fact]
     public async Task ExecuteAsync_StripsTrailingSemicolon()
     {
-        // We can't test actual SQL execution without a DB, but we can verify
-        // the semicolon is stripped by checking that "SELECT 1;" doesn't get
-        // passed through literally. When not connected, the SQL is never sent,
-        // so we test via a helper method instead.
         Assert.Equal("SELECT 1", SqlCommand.NormalizeSql("SELECT 1;"));
         Assert.Equal("SELECT 1", SqlCommand.NormalizeSql("SELECT 1 ;"));
         Assert.Equal("SELECT 1", SqlCommand.NormalizeSql("SELECT 1 ; "));
@@ -46,11 +53,12 @@ public class SqlCommandTests
     {
         using var connectionManager = new ConnectionManager();
         var queryExecutor = new QueryExecutor(connectionManager);
+        using var history = new CommandHistory(_dbPath);
 
         var (console, output, _) = VirtualConsole.CreateBuffered();
         using var _ = console;
 
-        var command = new SqlCommand(connectionManager, queryExecutor)
+        var command = new SqlCommand(connectionManager, queryExecutor, history)
         {
             SqlParts = []
         };
@@ -59,5 +67,12 @@ public class SqlCommandTests
 
         var text = output.GetString();
         Assert.Empty(text);
+    }
+
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 }

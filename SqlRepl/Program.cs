@@ -21,6 +21,7 @@ class Program
                 services.AddSingleton<ConnectionManager>();
                 services.AddSingleton<ConnectionStore>();
                 services.AddSingleton<QueryExecutor>();
+                services.AddSingleton<CommandHistory>();
             })
             .UseInteractiveMode(asStartup: true, options: cfg =>
             {
