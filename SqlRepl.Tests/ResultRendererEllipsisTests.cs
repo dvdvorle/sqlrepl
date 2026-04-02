@@ -62,4 +62,39 @@ public class ResultRendererEllipsisTests
         Assert.Contains("foo", dataLines[0]);
         Assert.Contains("bar", dataLines[0]);
     }
+
+    [Fact]
+    public void Render_NarrowConsole_DoesNotThrow()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("COL1", typeof(string));
+        dt.Columns.Add("COL2", typeof(string));
+        dt.Columns.Add("COL3", typeof(string));
+        dt.Rows.Add("hello world", "some data here", "more content");
+
+        var result = new QueryResult
+        {
+            Data = dt,
+            RowsAffected = 1,
+            Elapsed = TimeSpan.FromMilliseconds(1),
+            IsQuery = true
+        };
+
+        var console = new TestConsole();
+        console.Profile.Width = 20;
+
+        var ex = Record.Exception(() => ResultRenderer.Render(result, console));
+        Assert.Null(ex);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void NonBreakingText_VerySmallMaxWidth_DoesNotThrow(int maxWidth)
+    {
+        var nbt = new NonBreakingText("hello world");
+        var ex = Record.Exception(() => nbt.Render(null!, maxWidth).ToList());
+        Assert.Null(ex);
+    }
 }

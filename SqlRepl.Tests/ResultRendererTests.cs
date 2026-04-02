@@ -57,11 +57,68 @@ public class ResultRendererTests
     }
 
     [Fact]
-    public void Render_QueryWithNullValues_ShowsNULL()
+    public void Render_QueryWithNullValues_ShowsDash()
     {
         var dt = new DataTable();
+        dt.Columns.Add("ID", typeof(int));
         dt.Columns.Add("VAL", typeof(string));
-        dt.Rows.Add(DBNull.Value);
+        dt.Rows.Add(1, "hello");
+        dt.Rows.Add(2, DBNull.Value);
+
+        var result = new QueryResult
+        {
+            Data = dt,
+            RowsAffected = 2,
+            Elapsed = TimeSpan.FromMilliseconds(1),
+            IsQuery = true
+        };
+
+        var console = new TestConsole();
+        console.Profile.Width = 120;
+
+        ResultRenderer.Render(result, console);
+
+        var output = console.Output;
+        Assert.Contains("—", output);
+    }
+
+    [Fact]
+    public void Render_AllNullColumn_IsHiddenFromTable()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("ID", typeof(int));
+        dt.Columns.Add("NOTES", typeof(string));
+        dt.Rows.Add(1, DBNull.Value);
+        dt.Rows.Add(2, DBNull.Value);
+
+        var result = new QueryResult
+        {
+            Data = dt,
+            RowsAffected = 2,
+            Elapsed = TimeSpan.FromMilliseconds(1),
+            IsQuery = true
+        };
+
+        var console = new TestConsole();
+        console.Profile.Width = 120;
+
+        ResultRenderer.Render(result, console);
+
+        var output = console.Output;
+        Assert.Contains("id", output);
+        // "notes" should not appear as a table header but should appear in hidden list
+        Assert.Contains("Hidden", output);
+        Assert.Contains("notes", output);
+    }
+
+    [Fact]
+    public void Render_AllNullColumn_ListsHiddenColumns()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("ID", typeof(int));
+        dt.Columns.Add("NOTES", typeof(string));
+        dt.Columns.Add("REMARKS", typeof(string));
+        dt.Rows.Add(1, DBNull.Value, DBNull.Value);
 
         var result = new QueryResult
         {
@@ -77,6 +134,35 @@ public class ResultRendererTests
         ResultRenderer.Render(result, console);
 
         var output = console.Output;
-        Assert.Contains("NULL", output);
+        Assert.Contains("notes", output);
+        Assert.Contains("remarks", output);
+        Assert.Contains("hidden", output, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Render_PartialNullColumn_IsShown()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("ID", typeof(int));
+        dt.Columns.Add("NOTES", typeof(string));
+        dt.Rows.Add(1, "hello");
+        dt.Rows.Add(2, DBNull.Value);
+
+        var result = new QueryResult
+        {
+            Data = dt,
+            RowsAffected = 2,
+            Elapsed = TimeSpan.FromMilliseconds(1),
+            IsQuery = true
+        };
+
+        var console = new TestConsole();
+        console.Profile.Width = 120;
+
+        ResultRenderer.Render(result, console);
+
+        var output = console.Output;
+        Assert.Contains("id", output);
+        Assert.Contains("notes", output);
     }
 }

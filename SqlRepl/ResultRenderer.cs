@@ -13,7 +13,12 @@ public static class ResultRenderer
 
         if (result.IsQuery && result.Data is not null)
         {
-            RenderTable(result.Data, console, settings);
+            var hiddenColumns = RenderTable(result.Data, console, settings);
+            if (hiddenColumns.Count > 0)
+            {
+                var names = string.Join(", ", hiddenColumns);
+                console.MarkupLine($"[grey]Hidden (all null): {names}[/]");
+            }
         }
 
         var info = result.IsQuery
@@ -23,29 +28,53 @@ public static class ResultRenderer
         console.MarkupLine($"{info} [grey]in {result.Elapsed.TotalMilliseconds:F0}ms[/]");
     }
 
-    private static void RenderTable(DataTable data, IAnsiConsole console, ReplSettings settings)
+    private static IReadOnlyList<string> RenderTable(DataTable data, IAnsiConsole console, ReplSettings settings)
     {
         if (data.Columns.Count == 0)
-            return;
+            return [];
+
+        // Determine which columns have at least one non-null value
+        var visibleColumns = new List<int>();
+        var hiddenColumns = new List<string>();
+        for (var i = 0; i < data.Columns.Count; i++)
+        {
+            var hasValue = false;
+            foreach (DataRow row in data.Rows)
+            {
+                if (row[i] != DBNull.Value)
+                {
+                    hasValue = true;
+                    break;
+                }
+            }
+
+            if (hasValue)
+                visibleColumns.Add(i);
+            else
+                hiddenColumns.Add(data.Columns[i].ColumnName.ToLowerInvariant());
+        }
+
+        if (visibleColumns.Count == 0)
+            return hiddenColumns;
 
         var table = new Table()
             .Border(TableBorder.Rounded)
             .BorderColor(Color.Grey);
 
-        foreach (DataColumn col in data.Columns)
+        foreach (var colIdx in visibleColumns)
         {
-            table.AddColumn(Markup.Escape(col.ColumnName.ToLowerInvariant()), c => c.NoWrap());
+            table.AddColumn(Markup.Escape(data.Columns[colIdx].ColumnName.ToLowerInvariant()), c => c.NoWrap());
         }
 
         foreach (DataRow row in data.Rows)
         {
-            var cells = new IRenderable[data.Columns.Count];
-            for (var i = 0; i < data.Columns.Count; i++)
+            var cells = new IRenderable[visibleColumns.Count];
+            for (var i = 0; i < visibleColumns.Count; i++)
             {
-                var value = row[i];
+                var value = row[visibleColumns[i]];
                 if (value == DBNull.Value)
                 {
-                    cells[i] = new Markup("[grey italic]NULL[/]");
+                    cells[i] = new Markup("[grey]—[/]");
                 }
                 else
                 {
@@ -56,6 +85,8 @@ public static class ResultRenderer
         }
 
         console.Write(table);
+
+        return hiddenColumns;
     }
 
     private static string FormatValue(object value, ReplSettings settings)
@@ -95,9 +126,16 @@ public sealed class NonBreakingText : IRenderable
 
     public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
     {
-        var text = _text.Length <= maxWidth
-            ? _text
-            : _text[..(maxWidth - 1)] + "…";
+        string text;
+        if (maxWidth <= 0)
+            text = string.Empty;
+        else if (_text.Length <= maxWidth)
+            text = _text;
+        else if (maxWidth == 1)
+            text = "…";
+        else
+            text = _text[..(maxWidth - 1)] + "…";
+
         yield return new Segment(text, _style);
         yield return Segment.LineBreak;
     }
