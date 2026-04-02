@@ -120,6 +120,10 @@ dotnet run --project SqlRepl          # run from source
 dotnet test SqlRepl.Tests             # run tests (125+)
 ```
 
+## License
+
+Licensed under the [EUPL v1.2](LICENSE).
+
 ## Project structure
 
 ```
