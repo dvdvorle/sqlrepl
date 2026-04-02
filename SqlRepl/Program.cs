@@ -27,6 +27,7 @@ class Program
                 services.AddSingleton<ConnectionStore>();
                 services.AddSingleton<QueryExecutor>();
                 services.AddSingleton<CommandHistory>();
+                services.AddSingleton<SqlBuffer>();
                 services.AddSingleton(ReplSettings.Load());
             })
             .UseInteractiveMode(asStartup: true, options: cfg =>
@@ -40,6 +41,15 @@ class Program
                 cfg.SetPrompt((sp, _, console) =>
                 {
                     _services = sp;
+                    var sqlBuffer = sp.GetRequiredService<SqlBuffer>();
+                    if (sqlBuffer.IsBuffering)
+                    {
+                        console.Output.WithForegroundColor(ConsoleColor.DarkGray,
+                            o => o.Write("  ..."));
+                        console.Output.Write(" > ");
+                        return;
+                    }
+
                     var conn = sp.GetRequiredService<ConnectionManager>();
                     if (conn.IsConnected)
                     {

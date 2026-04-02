@@ -12,16 +12,18 @@ public class SqlCommand : ICommand
     private readonly QueryExecutor _queryExecutor;
     private readonly CommandHistory _commandHistory;
     private readonly ReplSettings _settings;
+    private readonly SqlBuffer _sqlBuffer;
 
     [CommandParameter(0, Name = "sql", Description = "SQL statement to execute")]
     public IReadOnlyList<string> SqlParts { get; init; } = [];
 
-    public SqlCommand(ConnectionManager connectionManager, QueryExecutor queryExecutor, CommandHistory commandHistory, ReplSettings settings)
+    public SqlCommand(ConnectionManager connectionManager, QueryExecutor queryExecutor, CommandHistory commandHistory, ReplSettings settings, SqlBuffer sqlBuffer)
     {
         _connectionManager = connectionManager;
         _queryExecutor = queryExecutor;
         _commandHistory = commandHistory;
         _settings = settings;
+        _sqlBuffer = sqlBuffer;
     }
 
     public static string NormalizeSql(string input)
@@ -32,7 +34,18 @@ public class SqlCommand : ICommand
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var sql = NormalizeSql(string.Join(" ", SqlParts));
+        var rawInput = string.Join(" ", SqlParts);
+        if (string.IsNullOrWhiteSpace(rawInput))
+            return;
+
+        var bufferResult = _sqlBuffer.Append(rawInput);
+        if (!bufferResult.IsComplete)
+        {
+            // Buffering — continuation prompt will be shown by the prompt handler
+            return;
+        }
+
+        var sql = bufferResult.Sql?.Trim() ?? "";
         if (string.IsNullOrEmpty(sql))
             return;
 

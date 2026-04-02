@@ -25,9 +25,9 @@ public class SqlCommandTests : IDisposable
         var (console, output, _) = VirtualConsole.CreateBuffered();
         using var _ = console;
 
-        var command = new SqlCommand(connectionManager, queryExecutor, history, new ReplSettings())
+        var command = new SqlCommand(connectionManager, queryExecutor, history, new ReplSettings(), new SqlBuffer())
         {
-            SqlParts = ["SELECT", "*", "FROM", "dual"]
+            SqlParts = ["SELECT", "*", "FROM", "dual;"]
         };
 
         await command.ExecuteAsync(console);
@@ -58,7 +58,7 @@ public class SqlCommandTests : IDisposable
         var (console, output, _) = VirtualConsole.CreateBuffered();
         using var _ = console;
 
-        var command = new SqlCommand(connectionManager, queryExecutor, history, new ReplSettings())
+        var command = new SqlCommand(connectionManager, queryExecutor, history, new ReplSettings(), new SqlBuffer())
         {
             SqlParts = []
         };
