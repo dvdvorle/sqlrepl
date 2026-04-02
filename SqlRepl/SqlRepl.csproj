@@ -5,6 +5,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>sqlrepl</ToolCommandName>
+    <PackageId>SqlRepl</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Interactive Oracle SQL REPL with rich terminal output</Description>
   </PropertyGroup>
 
   <ItemGroup>
