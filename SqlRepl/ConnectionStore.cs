@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FuzzySharp;
 
 namespace SqlRepl;
 
@@ -51,6 +52,20 @@ public class ConnectionStore
 
     public SavedConnection? Get(string name) =>
         _connections.GetValueOrDefault(name);
+
+    public IReadOnlyList<SavedConnection> FuzzySearch(string query, int threshold = 60)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return GetAll();
+
+        return _connections.Values
+            .Select(c => new { Connection = c, Score = Fuzz.PartialRatio(query.ToLowerInvariant(), c.Name.ToLowerInvariant()) })
+            .Where(x => x.Score >= threshold)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Connection.Name)
+            .Select(x => x.Connection)
+            .ToList();
+    }
 
     public void Save(SavedConnection connection)
     {

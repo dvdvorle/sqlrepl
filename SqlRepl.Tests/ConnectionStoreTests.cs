@@ -122,6 +122,64 @@ public class ConnectionStoreTests : IDisposable
         Assert.Equal("zebra", all[1].Name);
     }
 
+    [Fact]
+    public void FuzzySearch_ExactMatch_ReturnsSingle()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "dev", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "prod", Host = "h", Username = "u", Password = "p" });
+
+        var results = store.FuzzySearch("dev");
+        Assert.Single(results);
+        Assert.Equal("dev", results[0].Name);
+    }
+
+    [Fact]
+    public void FuzzySearch_PartialMatch_ReturnsMatches()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "dev-oracle", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "dev-postgres", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "prod-oracle", Host = "h", Username = "u", Password = "p" });
+
+        var results = store.FuzzySearch("dev");
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Contains("dev", r.Name));
+    }
+
+    [Fact]
+    public void FuzzySearch_FuzzyMatch_ReturnsBestMatches()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "sc344so1", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "sc344ow1", Host = "h", Username = "u", Password = "p" });
+        store.Save(new SavedConnection { Name = "unrelated", Host = "h", Username = "u", Password = "p" });
+
+        var results = store.FuzzySearch("sc344");
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.StartsWith("sc344", r.Name));
+    }
+
+    [Fact]
+    public void FuzzySearch_NoMatch_ReturnsEmpty()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "dev", Host = "h", Username = "u", Password = "p" });
+
+        var results = store.FuzzySearch("zzz");
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void FuzzySearch_CaseInsensitive()
+    {
+        var store = new ConnectionStore(_filePath);
+        store.Save(new SavedConnection { Name = "DevOracle", Host = "h", Username = "u", Password = "p" });
+
+        var results = store.FuzzySearch("devoracle");
+        Assert.Single(results);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDir))

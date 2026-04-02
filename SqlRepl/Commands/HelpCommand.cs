@@ -26,7 +26,7 @@ public class HelpCommand : ICommand
         console.Output.WriteLine();
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Commands:"));
         console.Output.WriteLine("    conn <user/pass@host>       Connect via credentials and TNS alias or host");
-        console.Output.WriteLine("    conn <saved-name>           Connect using a saved connection");
+        console.Output.WriteLine("    conn <name-or-fuzzy>        Connect using a saved connection (fuzzy match)");
         console.Output.WriteLine("    conn \"<connection string>\"  Connect via full connection string");
         console.Output.WriteLine("    connect ...                 Alias for conn");
         console.Output.WriteLine("    conn save <name> <spec>     Save a connection for later use");

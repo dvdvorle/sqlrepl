@@ -71,6 +71,46 @@ public class ConnectCommandTests : IDisposable
         Assert.Contains("Using saved connection", text, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithFuzzyMatch_SingleResult_AutoConnects()
+    {
+        _store.Save(new SavedConnection { Name = "dev-oracle", Username = "scott", Password = "tiger", Host = "fakehost" });
+        _store.Save(new SavedConnection { Name = "prod-postgres", Username = "admin", Password = "secret", Host = "prodhost" });
+
+        using var connectionManager = new ConnectionManager();
+        var command = new ConnectCommand(connectionManager, _store)
+        {
+            ConnectionSpec = "dev-ora"
+        };
+
+        var (console, output, _) = VirtualConsole.CreateBuffered();
+        using var _ = console;
+
+        await command.ExecuteAsync(console);
+
+        var text = output.GetString();
+        Assert.Contains("Using saved connection 'dev-oracle'", text);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithNoSavedConnections_FallsThrough()
+    {
+        using var connectionManager = new ConnectionManager();
+        var command = new ConnectCommand(connectionManager, _store)
+        {
+            ConnectionSpec = "dev"
+        };
+
+        var (console, output, _) = VirtualConsole.CreateBuffered();
+        using var _ = console;
+
+        await command.ExecuteAsync(console);
+
+        var text = output.GetString();
+        // No saved connections, so it should try as a direct connection spec and fail
+        Assert.Contains("Connection failed", text, StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDir))

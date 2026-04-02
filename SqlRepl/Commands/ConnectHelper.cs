@@ -9,6 +9,19 @@ public static partial class ConnectHelper
     [GeneratedRegex(@"^(\S+)/(\S+)@(\S+)$")]
     private static partial Regex ComponentsRegex();
 
+    public static bool IsDirectConnectionSpec(string spec)
+    {
+        // user/pass@host pattern
+        if (ComponentsRegex().IsMatch(spec))
+            return true;
+
+        // Connection string (contains key=value pairs)
+        if (spec.Contains('=') && spec.Contains(';'))
+            return true;
+
+        return false;
+    }
+
     public static async Task ExecuteConnectAsync(ConnectionManager connectionManager, string spec, IConsole console)
     {
         try

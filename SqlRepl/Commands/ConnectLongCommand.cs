@@ -1,3 +1,4 @@
+using Spectre.Console;
 using Typin;
 using Typin.Attributes;
 using Typin.Console;
@@ -24,17 +25,47 @@ public class ConnectLongCommand : ICommand
         var saved = _store.Get(ConnectionSpec);
         if (saved is not null)
         {
-            var spec = saved.IsComponentBased
-                ? $"{saved.Username}/{saved.Password}@{saved.Host}"
-                : saved.ConnectionString!;
+            await ConnectWithSaved(saved, console);
+            return;
+        }
 
-            console.Output.WithForegroundColor(ConsoleColor.DarkGray,
-                o => o.WriteLine($"Using saved connection '{saved.Name}'..."));
+        if (ConnectHelper.IsDirectConnectionSpec(ConnectionSpec))
+        {
+            await ConnectHelper.ExecuteConnectAsync(_connectionManager, ConnectionSpec, console);
+            return;
+        }
 
-            await ConnectHelper.ExecuteConnectAsync(_connectionManager, spec, console);
+        var matches = _store.FuzzySearch(ConnectionSpec);
+        if (matches.Count == 1)
+        {
+            await ConnectWithSaved(matches[0], console);
+            return;
+        }
+
+        if (matches.Count > 1)
+        {
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Multiple connections match [yellow]{Markup.Escape(ConnectionSpec)}[/]:")
+                    .AddChoices(matches.Select(m => m.Name)));
+
+            var chosen = _store.Get(choice)!;
+            await ConnectWithSaved(chosen, console);
             return;
         }
 
         await ConnectHelper.ExecuteConnectAsync(_connectionManager, ConnectionSpec, console);
+    }
+
+    private async ValueTask ConnectWithSaved(SavedConnection saved, IConsole console)
+    {
+        var spec = saved.IsComponentBased
+            ? $"{saved.Username}/{saved.Password}@{saved.Host}"
+            : saved.ConnectionString!;
+
+        console.Output.WithForegroundColor(ConsoleColor.DarkGray,
+            o => o.WriteLine($"Using saved connection '{saved.Name}'..."));
+
+        await ConnectHelper.ExecuteConnectAsync(_connectionManager, spec, console);
     }
 }
