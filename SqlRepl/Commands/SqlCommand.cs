@@ -20,9 +20,15 @@ public class SqlCommand : ICommand
         _queryExecutor = queryExecutor;
     }
 
+    public static string NormalizeSql(string input)
+    {
+        var sql = input.Trim().TrimEnd(';').Trim();
+        return sql;
+    }
+
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var sql = string.Join(" ", SqlParts).Trim();
+        var sql = NormalizeSql(string.Join(" ", SqlParts));
         if (string.IsNullOrEmpty(sql))
             return;
 
