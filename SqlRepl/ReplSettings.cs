@@ -6,6 +6,7 @@ public class ReplSettings
 {
     public string DateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
     public string DateOnlyFormat { get; set; } = "yyyy-MM-dd";
+    public int PageSize { get; set; } = 50;
 
     public static ReplSettings Load()
     {
@@ -24,6 +25,10 @@ public class ReplSettings
         var dateOnlyFormat = config["DateOnlyFormat"];
         if (!string.IsNullOrEmpty(dateOnlyFormat))
             settings.DateOnlyFormat = dateOnlyFormat;
+
+        var pageSize = config["PageSize"];
+        if (!string.IsNullOrEmpty(pageSize) && int.TryParse(pageSize, out var ps) && ps > 0)
+            settings.PageSize = ps;
 
         return settings;
     }

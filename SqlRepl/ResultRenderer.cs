@@ -13,11 +13,32 @@ public static class ResultRenderer
 
         if (result.IsQuery && result.Data is not null)
         {
-            var hiddenColumns = RenderTable(result.Data, console, settings);
-            if (hiddenColumns.Count > 0)
+            var (visibleColumns, hiddenColumns) = GetVisibleColumns(result.Data);
+
+            if (visibleColumns.Count == 0 && hiddenColumns.Count > 0)
             {
                 var names = string.Join(", ", hiddenColumns);
                 console.MarkupLine($"[grey]Hidden (all null): {names}[/]");
+            }
+            else if (visibleColumns.Count > 0)
+            {
+                var totalRows = result.Data.Rows.Count;
+                var pageSize = settings.PageSize;
+
+                if (totalRows <= pageSize)
+                {
+                    RenderPage(result.Data, visibleColumns, 0, totalRows, console, settings);
+                }
+                else
+                {
+                    RenderPaginated(result.Data, visibleColumns, pageSize, totalRows, console, settings);
+                }
+
+                if (hiddenColumns.Count > 0)
+                {
+                    var names = string.Join(", ", hiddenColumns);
+                    console.MarkupLine($"[grey]Hidden (all null): {names}[/]");
+                }
             }
         }
 
@@ -28,14 +49,39 @@ public static class ResultRenderer
         console.MarkupLine($"{info} [grey]in {result.Elapsed.TotalMilliseconds:F0}ms[/]");
     }
 
-    private static IReadOnlyList<string> RenderTable(DataTable data, IAnsiConsole console, ReplSettings settings)
+    private static void RenderPaginated(DataTable data, List<int> visibleColumns, int pageSize, int totalRows, IAnsiConsole console, ReplSettings settings)
     {
-        if (data.Columns.Count == 0)
-            return [];
+        var totalPages = (int)Math.Ceiling((double)totalRows / pageSize);
+        var page = 0;
 
-        // Determine which columns have at least one non-null value
-        var visibleColumns = new List<int>();
-        var hiddenColumns = new List<string>();
+        while (true)
+        {
+            var start = page * pageSize;
+            var end = Math.Min(start + pageSize, totalRows);
+            RenderPage(data, visibleColumns, start, end, console, settings);
+            console.MarkupLine($"[grey]Page {page + 1}/{totalPages} ({start + 1}–{end} of {totalRows} rows)[/]");
+
+            if (end >= totalRows)
+                break;
+
+            if (!console.Profile.Capabilities.Interactive)
+                break;
+
+            var choice = console.Prompt(
+                new SelectionPrompt<string>()
+                    .AddChoices("Next page", "Quit"));
+
+            if (choice == "Quit")
+                break;
+
+            page++;
+        }
+    }
+
+    private static (List<int> visible, List<string> hidden) GetVisibleColumns(DataTable data)
+    {
+        var visible = new List<int>();
+        var hidden = new List<string>();
         for (var i = 0; i < data.Columns.Count; i++)
         {
             var hasValue = false;
@@ -49,14 +95,15 @@ public static class ResultRenderer
             }
 
             if (hasValue)
-                visibleColumns.Add(i);
+                visible.Add(i);
             else
-                hiddenColumns.Add(data.Columns[i].ColumnName.ToLowerInvariant());
+                hidden.Add(data.Columns[i].ColumnName.ToLowerInvariant());
         }
+        return (visible, hidden);
+    }
 
-        if (visibleColumns.Count == 0)
-            return hiddenColumns;
-
+    private static void RenderPage(DataTable data, List<int> visibleColumns, int startRow, int endRow, IAnsiConsole console, ReplSettings settings)
+    {
         var table = new Table()
             .Border(TableBorder.Rounded)
             .BorderColor(Color.Grey);
@@ -66,8 +113,9 @@ public static class ResultRenderer
             table.AddColumn(Markup.Escape(data.Columns[colIdx].ColumnName.ToLowerInvariant()), c => c.NoWrap());
         }
 
-        foreach (DataRow row in data.Rows)
+        for (var r = startRow; r < endRow; r++)
         {
+            var row = data.Rows[r];
             var cells = new IRenderable[visibleColumns.Count];
             for (var i = 0; i < visibleColumns.Count; i++)
             {
@@ -85,8 +133,6 @@ public static class ResultRenderer
         }
 
         console.Write(table);
-
-        return hiddenColumns;
     }
 
     private static string FormatValue(object value, ReplSettings settings)
