@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
+using TextCopy;
 using Typin;
 using Typin.AutoCompletion;
 using Typin.Console;
@@ -91,5 +92,16 @@ class Program
 
         // Write the selected command to the console so Typin picks it up
         AnsiConsole.MarkupLine($"[grey]> {Markup.Escape(selected)}[/]");
+
+        try
+        {
+            var clipboard = selected.TrimEnd().EndsWith(';') ? selected : selected.TrimEnd() + ";";
+            ClipboardService.SetText(clipboard);
+            AnsiConsole.MarkupLine("[grey]Copied to clipboard.[/]");
+        }
+        catch
+        {
+            // Clipboard may not be available in all environments
+        }
     }
 }

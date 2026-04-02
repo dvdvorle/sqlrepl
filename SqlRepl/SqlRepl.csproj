@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.100" />
     <PackageReference Include="Spectre.Console" Version="0.54.1-alpha.0.86" />
+    <PackageReference Include="TextCopy" Version="6.2.1" />
     <PackageReference Include="Typin" Version="3.1.0" />
   </ItemGroup>
 
