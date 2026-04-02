@@ -1,0 +1,41 @@
+using Typin;
+using Typin.Attributes;
+using Typin.Console;
+
+namespace SqlRepl.Commands;
+
+[Command("help", Description = "Show available commands.")]
+public class HelpCommand : ICommand
+{
+    private readonly ConnectionManager _connectionManager;
+
+    public HelpCommand(ConnectionManager connectionManager)
+    {
+        _connectionManager = connectionManager;
+    }
+
+    public ValueTask ExecuteAsync(IConsole console)
+    {
+        var status = _connectionManager.IsConnected
+            ? $"Connected to {_connectionManager.CurrentDataSource ?? "oracle"}"
+            : "Not connected";
+
+        console.Output.WriteLine();
+        console.Output.WithForegroundColor(ConsoleColor.Yellow, o => o.WriteLine("  SqlRepl — Oracle SQL REPL"));
+        console.Output.WriteLine($"  Status: {status}");
+        console.Output.WriteLine();
+        console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Commands:"));
+        console.Output.WriteLine("    conn <user/pass@host>       Connect via credentials and TNS alias or host");
+        console.Output.WriteLine("    conn \"<connection string>\"  Connect via full connection string");
+        console.Output.WriteLine("    connect ...                 Alias for conn");
+        console.Output.WriteLine("    help                        Show this help");
+        console.Output.WriteLine("    <SQL statement>             Execute SQL against the connected database");
+        console.Output.WriteLine();
+        console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Interactive:"));
+        console.Output.WriteLine("    Tab / Shift+Tab             Autocomplete commands");
+        console.Output.WriteLine("    Up / Down                   Navigate command history");
+        console.Output.WriteLine();
+
+        return default;
+    }
+}
