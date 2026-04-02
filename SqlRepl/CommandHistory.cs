@@ -7,7 +7,8 @@ public record HistoryEntry
     public long Id { get; init; }
     public string Command { get; init; } = "";
     public string Connection { get; init; } = "";
-    public DateTime ExecutedAt { get; init; }
+    public DateTime LastExecutedAt { get; init; }
+    public int ExecutionCount { get; init; }
 }
 
 public class CommandHistory : IDisposable
@@ -35,23 +36,62 @@ public class CommandHistory : IDisposable
 
     public void Add(string command, string? connection = null)
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "INSERT INTO history (command, connection, executed_at) VALUES ($command, $connection, $executed_at)";
-        cmd.Parameters.AddWithValue("$command", command);
-        cmd.Parameters.AddWithValue("$connection", connection ?? "");
-        cmd.Parameters.AddWithValue("$executed_at", DateTime.UtcNow.ToString("o"));
-        cmd.ExecuteNonQuery();
+        connection ??= "";
 
-        using var ftsCmd = _db.CreateCommand();
-        ftsCmd.CommandText = "INSERT INTO history_fts (rowid, command) VALUES (last_insert_rowid(), $command)";
-        ftsCmd.Parameters.AddWithValue("$command", command);
-        ftsCmd.ExecuteNonQuery();
+        // Check if command already exists
+        using var check = _db.CreateCommand();
+        check.CommandText = "SELECT id FROM commands WHERE command = $command";
+        check.Parameters.AddWithValue("$command", command);
+        var existing = check.ExecuteScalar();
+
+        long commandId;
+        if (existing is not null)
+        {
+            commandId = (long)existing;
+        }
+        else
+        {
+            // Insert new command
+            using var insert = _db.CreateCommand();
+            insert.CommandText = "INSERT INTO commands (command) VALUES ($command)";
+            insert.Parameters.AddWithValue("$command", command);
+            insert.ExecuteNonQuery();
+
+            using var getId = _db.CreateCommand();
+            getId.CommandText = "SELECT last_insert_rowid()";
+            commandId = (long)getId.ExecuteScalar()!;
+
+            // Index in FTS
+            using var fts = _db.CreateCommand();
+            fts.CommandText = "INSERT INTO commands_fts (rowid, command) VALUES ($id, $command)";
+            fts.Parameters.AddWithValue("$id", commandId);
+            fts.Parameters.AddWithValue("$command", command);
+            fts.ExecuteNonQuery();
+        }
+
+        // Record execution
+        using var exec = _db.CreateCommand();
+        exec.CommandText = "INSERT INTO executions (command_id, connection, executed_at) VALUES ($cid, $conn, $ts)";
+        exec.Parameters.AddWithValue("$cid", commandId);
+        exec.Parameters.AddWithValue("$conn", connection);
+        exec.Parameters.AddWithValue("$ts", DateTime.UtcNow.ToString("o"));
+        exec.ExecuteNonQuery();
     }
 
     public IReadOnlyList<HistoryEntry> GetRecent(int limit = 50)
     {
         using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT id, command, connection, executed_at FROM history ORDER BY id DESC LIMIT $limit";
+        cmd.CommandText = """
+            SELECT c.id, c.command, e.connection, e.executed_at, e.cnt
+            FROM commands c
+            JOIN (
+                SELECT command_id, connection, MAX(executed_at) AS executed_at, COUNT(*) AS cnt
+                FROM executions
+                GROUP BY command_id
+            ) e ON e.command_id = c.id
+            ORDER BY e.executed_at DESC
+            LIMIT $limit
+            """;
         cmd.Parameters.AddWithValue("$limit", limit);
 
         return ReadEntries(cmd);
@@ -59,16 +99,42 @@ public class CommandHistory : IDisposable
 
     public IReadOnlyList<HistoryEntry> Search(string query, int limit = 50)
     {
+        if (query.Length < 3)
+        {
+            // Trigram needs at least 3 chars; fall back to LIKE
+            using var likeCmd = _db.CreateCommand();
+            likeCmd.CommandText = """
+                SELECT c.id, c.command, e.connection, e.executed_at, e.cnt
+                FROM commands c
+                JOIN (
+                    SELECT command_id, connection, MAX(executed_at) AS executed_at, COUNT(*) AS cnt
+                    FROM executions
+                    GROUP BY command_id
+                ) e ON e.command_id = c.id
+                WHERE c.command LIKE $pattern
+                ORDER BY e.executed_at DESC
+                LIMIT $limit
+                """;
+            likeCmd.Parameters.AddWithValue("$pattern", $"%{query}%");
+            likeCmd.Parameters.AddWithValue("$limit", limit);
+            return ReadEntries(likeCmd);
+        }
+
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
-            SELECT h.id, h.command, h.connection, h.executed_at
-            FROM history_fts fts
-            JOIN history h ON h.id = fts.rowid
-            WHERE history_fts MATCH $query
-            ORDER BY h.id DESC
+            SELECT c.id, c.command, e.connection, e.executed_at, e.cnt
+            FROM commands_fts fts
+            JOIN commands c ON c.id = fts.rowid
+            JOIN (
+                SELECT command_id, connection, MAX(executed_at) AS executed_at, COUNT(*) AS cnt
+                FROM executions
+                GROUP BY command_id
+            ) e ON e.command_id = c.id
+            WHERE commands_fts MATCH $query
+            ORDER BY e.executed_at DESC
             LIMIT $limit
             """;
-        cmd.Parameters.AddWithValue("$query", $"\"{query}\"");
+        cmd.Parameters.AddWithValue("$query", query);
         cmd.Parameters.AddWithValue("$limit", limit);
 
         return ReadEntries(cmd);
@@ -85,7 +151,8 @@ public class CommandHistory : IDisposable
                 Id = reader.GetInt64(0),
                 Command = reader.GetString(1),
                 Connection = reader.GetString(2),
-                ExecutedAt = DateTime.Parse(reader.GetString(3)).ToUniversalTime()
+                LastExecutedAt = DateTime.Parse(reader.GetString(3)).ToUniversalTime(),
+                ExecutionCount = reader.GetInt32(4)
             });
         }
         return entries;
@@ -95,13 +162,22 @@ public class CommandHistory : IDisposable
     {
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS history (
+            CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                command TEXT NOT NULL,
+                command TEXT NOT NULL UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS executions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                command_id INTEGER NOT NULL REFERENCES commands(id),
                 connection TEXT NOT NULL DEFAULT '',
                 executed_at TEXT NOT NULL
             );
-            CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(command, content='');
+            CREATE INDEX IF NOT EXISTS idx_executions_command_id ON executions(command_id);
+            CREATE VIRTUAL TABLE IF NOT EXISTS commands_fts USING fts5(
+                command,
+                content='',
+                tokenize='trigram'
+            );
             """;
         cmd.ExecuteNonQuery();
     }

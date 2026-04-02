@@ -34,11 +34,14 @@ public class HelpCommand : ICommand
         console.Output.WriteLine("    conn delete <name>          Delete a saved connection");
         console.Output.WriteLine("    help                        Show this help");
         console.Output.WriteLine("    exit / quit / q             Exit the REPL");
+        console.Output.WriteLine("    history                     Show recent command history");
+        console.Output.WriteLine("    history search <term>       Search command history");
         console.Output.WriteLine("    <SQL statement>             Execute SQL against the connected database");
         console.Output.WriteLine();
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Interactive:"));
         console.Output.WriteLine("    Tab / Shift+Tab             Autocomplete commands");
         console.Output.WriteLine("    Up / Down                   Navigate command history");
+        console.Output.WriteLine("    Ctrl+R                      Interactive history search");
         console.Output.WriteLine();
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Configuration (appsettings.json or env vars):"));
         console.Output.WriteLine("    DateFormat                  DateTime format (default: yyyy-MM-dd HH:mm:ss)");

@@ -25,6 +25,31 @@ public class CommandHistoryTests : IDisposable
     }
 
     [Fact]
+    public void Add_Duplicate_DeduplicatesCommand()
+    {
+        using var history = new CommandHistory(_dbPath);
+        history.Add("SELECT 1 FROM dual", "devdb");
+        history.Add("SELECT 1 FROM dual", "devdb");
+        history.Add("SELECT 1 FROM dual", "proddb");
+
+        // Only one distinct command
+        var results = history.GetRecent(10);
+        Assert.Single(results);
+    }
+
+    [Fact]
+    public void Add_Duplicate_RecordsAllExecutions()
+    {
+        using var history = new CommandHistory(_dbPath);
+        history.Add("SELECT 1 FROM dual", "devdb");
+        history.Add("SELECT 1 FROM dual", "devdb");
+
+        var results = history.GetRecent(10);
+        Assert.Single(results);
+        Assert.Equal(2, results[0].ExecutionCount);
+    }
+
+    [Fact]
     public void GetRecent_ReturnsNewestFirst()
     {
         using var history = new CommandHistory(_dbPath);
@@ -36,6 +61,20 @@ public class CommandHistoryTests : IDisposable
         Assert.Equal(3, results.Count);
         Assert.Equal("SELECT 3", results[0].Command);
         Assert.Equal("SELECT 1", results[2].Command);
+    }
+
+    [Fact]
+    public void GetRecent_DuplicateMovesToTop()
+    {
+        using var history = new CommandHistory(_dbPath);
+        history.Add("SELECT 1", "db");
+        history.Add("SELECT 2", "db");
+        history.Add("SELECT 1", "db"); // re-execute old command
+
+        var results = history.GetRecent(10);
+        Assert.Equal(2, results.Count);
+        Assert.Equal("SELECT 1", results[0].Command); // most recently executed
+        Assert.Equal("SELECT 2", results[1].Command);
     }
 
     [Fact]
@@ -51,7 +90,7 @@ public class CommandHistoryTests : IDisposable
     }
 
     [Fact]
-    public void Search_FullTextSearch_FindsMatches()
+    public void Search_Trigram_FindsSubstring()
     {
         using var history = new CommandHistory(_dbPath);
         history.Add("SELECT * FROM employees WHERE dept = 'IT'", "db");
@@ -61,6 +100,17 @@ public class CommandHistoryTests : IDisposable
         var results = history.Search("employees");
         Assert.Equal(2, results.Count);
         Assert.All(results, r => Assert.Contains("employees", r.Command));
+    }
+
+    [Fact]
+    public void Search_Trigram_FindsPartialWord()
+    {
+        using var history = new CommandHistory(_dbPath);
+        history.Add("SELECT * FROM finafspraak", "db");
+
+        // Substring match — not a full token
+        var results = history.Search("afspraa");
+        Assert.Single(results);
     }
 
     [Fact]
@@ -105,7 +155,7 @@ public class CommandHistoryTests : IDisposable
         var after = DateTime.UtcNow;
 
         var results = history.GetRecent(1);
-        Assert.InRange(results[0].ExecutedAt, before.AddSeconds(-1), after.AddSeconds(1));
+        Assert.InRange(results[0].LastExecutedAt, before.AddSeconds(-1), after.AddSeconds(1));
     }
 
     public void Dispose()
