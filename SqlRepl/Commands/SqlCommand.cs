@@ -63,11 +63,22 @@ public class SqlCommand : ICommand
 
         try
         {
-            var result = await _queryExecutor.ExecuteAsync(sql);
-            if (result.Reconnected)
-                WriteReconnectNotification(console);
-            _commandHistory.Add(sql, _connectionManager.CurrentDataSource);
-            ResultRenderer.Render(result, settings: _settings);
+            if (QueryExecutor.IsQuery(sql))
+            {
+                await using var stream = await _queryExecutor.ExecuteStreamAsync(sql);
+                if (stream.Reconnected)
+                    WriteReconnectNotification(console);
+                _commandHistory.Add(sql, _connectionManager.CurrentDataSource);
+                await ResultRenderer.RenderStreamingAsync(stream, settings: _settings);
+            }
+            else
+            {
+                var result = await _queryExecutor.ExecuteAsync(sql);
+                if (result.Reconnected)
+                    WriteReconnectNotification(console);
+                _commandHistory.Add(sql, _connectionManager.CurrentDataSource);
+                ResultRenderer.Render(result, settings: _settings);
+            }
         }
         catch (Exception ex)
         {

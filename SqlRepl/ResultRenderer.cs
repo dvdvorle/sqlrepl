@@ -53,6 +53,62 @@ public static class ResultRenderer
         console.MarkupLine($"{info} [grey]in {result.Elapsed.TotalMilliseconds:F0}ms[/]");
     }
 
+    public static async Task RenderStreamingAsync(StreamingQueryResult stream, IAnsiConsole? console = null, ReplSettings? settings = null)
+    {
+        console ??= AnsiConsole.Console;
+        settings ??= new ReplSettings();
+
+        var pageSize = GetEffectivePageSize(settings, console);
+
+        var rows = await stream.ReadPageAsync(pageSize);
+        stream.StopTimer();
+
+        if (rows.Count == 0)
+        {
+            console.MarkupLine($"[grey]0 row(s) returned in {stream.Elapsed.TotalMilliseconds:F0}ms[/]");
+            return;
+        }
+
+        var (visibleIndices, hiddenNames) = GetVisibleColumnsFromRows(stream.ColumnNames, rows);
+
+        RenderStreamingPage(stream.ColumnNames, visibleIndices, rows, console, settings);
+
+        if (stream.HasMore)
+        {
+            while (true)
+            {
+                console.MarkupLine($"[grey]Showing rows 1–{stream.TotalRowsRead} ({stream.TotalRowsRead}+ rows)[/]");
+
+                if (!console.Profile.Capabilities.Interactive)
+                    break;
+
+                var choice = console.Prompt(
+                    new SelectionPrompt<string>()
+                        .AddChoices("Next page", "Quit"));
+
+                if (choice == "Quit")
+                    break;
+
+                rows = await stream.ReadPageAsync(pageSize);
+                if (rows.Count == 0)
+                    break;
+
+                RenderStreamingPage(stream.ColumnNames, visibleIndices, rows, console, settings);
+
+                if (!stream.HasMore)
+                    break;
+            }
+        }
+
+        if (hiddenNames.Count > 0)
+        {
+            var names = string.Join(", ", hiddenNames);
+            console.MarkupLine($"[grey]Hidden (all null in first page): {names}[/]");
+        }
+
+        console.MarkupLine($"[grey]{stream.TotalRowsRead} row(s) returned in {stream.Elapsed.TotalMilliseconds:F0}ms[/]");
+    }
+
     private static int GetEffectivePageSize(ReplSettings settings, IAnsiConsole console)
     {
         if (settings.PageSize > 0)
@@ -162,6 +218,47 @@ public static class ResultRenderer
         }
 
         return value.ToString() ?? string.Empty;
+    }
+
+    private static (List<int> visible, List<string> hidden) GetVisibleColumnsFromRows(string[] columnNames, List<object[]> rows)
+    {
+        var visible = new List<int>();
+        var hidden = new List<string>();
+        for (var i = 0; i < columnNames.Length; i++)
+        {
+            var hasValue = rows.Any(row => row[i] != DBNull.Value && row[i] is not null);
+            if (hasValue)
+                visible.Add(i);
+            else
+                hidden.Add(columnNames[i].ToLowerInvariant());
+        }
+        return (visible, hidden);
+    }
+
+    private static void RenderStreamingPage(string[] columnNames, List<int> visibleIndices, List<object[]> rows, IAnsiConsole console, ReplSettings settings)
+    {
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Grey);
+
+        foreach (var colIdx in visibleIndices)
+            table.AddColumn(Markup.Escape(columnNames[colIdx].ToLowerInvariant()), c => c.NoWrap());
+
+        foreach (var row in rows)
+        {
+            var cells = new IRenderable[visibleIndices.Count];
+            for (var i = 0; i < visibleIndices.Count; i++)
+            {
+                var value = row[visibleIndices[i]];
+                if (value == DBNull.Value || value is null)
+                    cells[i] = new Markup("[grey]—[/]");
+                else
+                    cells[i] = new NonBreakingText(FormatValue(value, settings));
+            }
+            table.AddRow(cells);
+        }
+
+        console.Write(table);
     }
 }
 

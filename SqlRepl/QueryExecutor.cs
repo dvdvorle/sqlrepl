@@ -62,11 +62,35 @@ public class ReconnectingQueryExecutor : IQueryExecutor
             return result with { Reconnected = true };
         }
     }
+
+    public async Task<StreamingQueryResult> ExecuteStreamAsync(string sql)
+    {
+        try
+        {
+            return await _inner.ExecuteStreamAsync(sql);
+        }
+        catch (Exception ex) when (_settings.AutoReconnect && !_checker.IsConnected && _checker.CanReconnect)
+        {
+            try
+            {
+                await _checker.ReconnectAsync();
+            }
+            catch
+            {
+                throw ex;
+            }
+
+            var result = await _inner.ExecuteStreamAsync(sql);
+            result.Reconnected = true;
+            return result;
+        }
+    }
 }
 
 public interface IQueryExecutor
 {
     Task<QueryResult> ExecuteAsync(string sql);
+    Task<StreamingQueryResult> ExecuteStreamAsync(string sql);
 }
 
 public class QueryExecutor : IQueryExecutor
@@ -78,6 +102,16 @@ public class QueryExecutor : IQueryExecutor
         _connectionManager = connectionManager;
     }
 
+    public static bool IsQuery(string sql)
+    {
+        var trimmedUpper = sql.TrimStart().ToUpperInvariant();
+        return trimmedUpper.StartsWith("SELECT") ||
+               trimmedUpper.StartsWith("WITH") ||
+               trimmedUpper.StartsWith("SHOW") ||
+               trimmedUpper.StartsWith("DESCRIBE") ||
+               trimmedUpper.StartsWith("DESC ");
+    }
+
     public async Task<QueryResult> ExecuteAsync(string sql)
     {
         var conn = _connectionManager.GetConnection();
@@ -86,15 +120,7 @@ public class QueryExecutor : IQueryExecutor
 
         var sw = Stopwatch.StartNew();
 
-        // Determine if it's a SELECT/WITH or a DML/DDL statement
-        var trimmedUpper = sql.TrimStart().ToUpperInvariant();
-        var isQuery = trimmedUpper.StartsWith("SELECT") ||
-                      trimmedUpper.StartsWith("WITH") ||
-                      trimmedUpper.StartsWith("SHOW") ||
-                      trimmedUpper.StartsWith("DESCRIBE") ||
-                      trimmedUpper.StartsWith("DESC ");
-
-        if (isQuery)
+        if (IsQuery(sql))
         {
             using var reader = await cmd.ExecuteReaderAsync();
             var table = new DataTable();
@@ -121,5 +147,21 @@ public class QueryExecutor : IQueryExecutor
                 IsQuery = false
             };
         }
+    }
+
+    public async Task<StreamingQueryResult> ExecuteStreamAsync(string sql)
+    {
+        var conn = _connectionManager.GetConnection();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+
+        var sw = Stopwatch.StartNew();
+        var reader = await cmd.ExecuteReaderAsync();
+
+        var columnNames = new string[reader.FieldCount];
+        for (var i = 0; i < reader.FieldCount; i++)
+            columnNames[i] = reader.GetName(i);
+
+        return new StreamingQueryResult(reader, cmd, columnNames, sw);
     }
 }
