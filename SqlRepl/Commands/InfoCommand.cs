@@ -47,6 +47,8 @@ public class InfoCommand : ICommand
             var fkSql = BuildForeignKeysSql(upperTable);
 
             var columnsResult = await _queryExecutor.ExecuteAsync(columnsSql);
+            if (columnsResult.Reconnected)
+                SqlCommand.WriteReconnectNotification(console);
             var fkResult = await _queryExecutor.ExecuteAsync(fkSql);
 
             if (columnsResult.Data is null || columnsResult.Data.Rows.Count == 0)

@@ -47,7 +47,8 @@ public class HelpCommand : ICommand
         console.Output.WithForegroundColor(ConsoleColor.White, o => o.WriteLine("  Configuration (appsettings.json or env vars):"));
         console.Output.WriteLine("    DateFormat                  DateTime format (default: yyyy-MM-dd HH:mm:ss)");
         console.Output.WriteLine("    DateOnlyFormat              Date-only format (default: yyyy-MM-dd)");
-        console.Output.WriteLine("    Env: SQLREPL_DateFormat, SQLREPL_DateOnlyFormat");
+        console.Output.WriteLine("    AutoReconnect               Auto-reconnect on connection drop (default: true)");
+        console.Output.WriteLine("    Env: SQLREPL_DateFormat, SQLREPL_DateOnlyFormat, SQLREPL_AutoReconnect");
         console.Output.WriteLine();
 
         return default;

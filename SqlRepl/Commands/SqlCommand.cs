@@ -26,6 +26,12 @@ public class SqlCommand : ICommand
         _sqlBuffer = sqlBuffer;
     }
 
+    public static void WriteReconnectNotification(IConsole console)
+    {
+        console.Output.WithForegroundColor(ConsoleColor.Yellow,
+            o => o.WriteLine("Connection was lost. Reconnected automatically."));
+    }
+
     public static string NormalizeSql(string input)
     {
         var sql = input.Trim().TrimEnd(';').Trim();
@@ -58,6 +64,8 @@ public class SqlCommand : ICommand
         try
         {
             var result = await _queryExecutor.ExecuteAsync(sql);
+            if (result.Reconnected)
+                WriteReconnectNotification(console);
             _commandHistory.Add(sql, _connectionManager.CurrentDataSource);
             ResultRenderer.Render(result, settings: _settings);
         }

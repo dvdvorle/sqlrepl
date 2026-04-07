@@ -6,13 +6,16 @@ namespace SqlRepl;
 /// <summary>
 /// Manages Oracle database connections.
 /// </summary>
-public class ConnectionManager : IDisposable
+public class ConnectionManager : IDisposable, IConnectionChecker
 {
     private OracleConnection? _connection;
+    private string? _lastConnectionString;
 
     public bool IsConnected => _connection?.State == System.Data.ConnectionState.Open;
 
     public string? CurrentDataSource => _connection?.DataSource;
+
+    public bool CanReconnect => _lastConnectionString is not null;
 
     /// <summary>
     /// Connects using an explicit connection string.
@@ -22,6 +25,7 @@ public class ConnectionManager : IDisposable
         await DisconnectAsync();
         _connection = new OracleConnection(connectionString);
         await _connection.OpenAsync();
+        _lastConnectionString = connectionString;
     }
 
     /// <summary>
@@ -32,6 +36,24 @@ public class ConnectionManager : IDisposable
     {
         var connectionString = BuildConnectionString(username, password, host);
         await ConnectAsync(connectionString);
+    }
+
+    /// <summary>
+    /// Re-establishes the connection using the last successful connection string.
+    /// </summary>
+    public async Task ReconnectAsync()
+    {
+        if (_lastConnectionString is null)
+            throw new InvalidOperationException("No previous connection to reconnect to.");
+
+        if (_connection is not null)
+        {
+            try { await _connection.CloseAsync(); } catch { }
+            await _connection.DisposeAsync();
+        }
+
+        _connection = new OracleConnection(_lastConnectionString);
+        await _connection.OpenAsync();
     }
 
     public OracleConnection GetConnection()

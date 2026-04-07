@@ -25,8 +25,14 @@ class Program
             .ConfigureServices(services =>
             {
                 services.AddSingleton<ConnectionManager>();
+                services.AddSingleton<IConnectionChecker>(sp => sp.GetRequiredService<ConnectionManager>());
                 services.AddSingleton<ConnectionStore>();
-                services.AddSingleton<IQueryExecutor, QueryExecutor>();
+                services.AddSingleton<QueryExecutor>();
+                services.AddSingleton<IQueryExecutor>(sp =>
+                    new ReconnectingQueryExecutor(
+                        sp.GetRequiredService<QueryExecutor>(),
+                        sp.GetRequiredService<IConnectionChecker>(),
+                        sp.GetRequiredService<ReplSettings>()));
                 services.AddSingleton<CommandHistory>();
                 services.AddSingleton<SqlBuffer>();
                 services.AddSingleton(ReplSettings.Load());
