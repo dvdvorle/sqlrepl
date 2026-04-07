@@ -6,6 +6,10 @@ namespace SqlRepl;
 
 public static class ResultRenderer
 {
+    private const int TableOverheadLines = 8; // borders, header, separator, footer, status line, prompt
+    private const int MinPageSize = 10;
+    private const int FallbackPageSize = 50;
+
     public static void Render(QueryResult result, IAnsiConsole? console = null, ReplSettings? settings = null)
     {
         console ??= AnsiConsole.Console;
@@ -23,7 +27,7 @@ public static class ResultRenderer
             else if (visibleColumns.Count > 0)
             {
                 var totalRows = result.Data.Rows.Count;
-                var pageSize = settings.PageSize;
+                var pageSize = GetEffectivePageSize(settings, console);
 
                 if (totalRows <= pageSize)
                 {
@@ -47,6 +51,18 @@ public static class ResultRenderer
             : $"[grey]{result.RowsAffected} row(s) affected[/]";
 
         console.MarkupLine($"{info} [grey]in {result.Elapsed.TotalMilliseconds:F0}ms[/]");
+    }
+
+    private static int GetEffectivePageSize(ReplSettings settings, IAnsiConsole console)
+    {
+        if (settings.PageSize > 0)
+            return settings.PageSize;
+
+        var height = console.Profile.Height;
+        if (height > 0)
+            return Math.Max(MinPageSize, height - TableOverheadLines);
+
+        return FallbackPageSize;
     }
 
     private static void RenderPaginated(DataTable data, List<int> visibleColumns, int pageSize, int totalRows, IAnsiConsole console, ReplSettings settings)

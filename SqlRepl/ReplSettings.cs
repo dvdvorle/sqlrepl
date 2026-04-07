@@ -6,7 +6,7 @@ public class ReplSettings
 {
     public string DateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
     public string DateOnlyFormat { get; set; } = "yyyy-MM-dd";
-    public int PageSize { get; set; } = 50;
+    public int PageSize { get; set; } = 0;
     public bool AutoReconnect { get; set; } = true;
 
     public static ReplSettings Load()
